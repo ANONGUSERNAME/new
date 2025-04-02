@@ -1,0 +1,166 @@
+register_process.php:
+<?php
+require_once 'connection.php';
+
+header('Content-Type: application/json');
+
+try {
+    $required = ['first_name', 'last_name', 'email', 'pwd', 'confirm_pwd', 'birthdate', 'gender'];
+    
+    foreach ($required as $field) {
+        if (empty($_POST[$field])) {
+            throw new Exception("All fields are required");
+        }
+    }
+    
+    $firstName = sanitize($_POST['first_name']);
+    $lastName = sanitize($_POST['last_name']);
+    $email = $_POST['email'];
+    $password = $_POST['pwd'];
+    $confirmPassword = $_POST['confirm_pwd'];
+    $birthdate = $_POST['birthdate'];
+    $contact = $_POST['contact_number'] ?? '';
+    $address = $_POST['address'] ?? '';
+    $gender = $_POST['gender'];
+
+    if ($password !== $confirmPassword) {
+        throw new Exception("Passwords do not match!");
+    }
+
+    if (strlen($password) < 8 || !preg_match('/[A-Za-z]/', $password) || !preg_match('/\d/', $password)) {
+        throw new Exception("Password must be 8+ characters with letters and numbers");
+    }
+
+    $emailCheck = mysqli_query($conn, "SELECT email FROM users WHERE email = '$email'");
+    if (mysqli_num_rows($emailCheck) > 0) {
+        throw new Exception("Email already registered!");
+    }
+
+    $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+    
+    $query = "INSERT INTO users (first_name, last_name, birthdate, email, password, contact_number, address, gender) 
+              VALUES ('$firstName', '$lastName', '$birthdate', '$email', '$hashedPassword', '$contact', '$address', '$gender')";
+    
+    if (!mysqli_query($conn, $query)) {
+        throw new Exception("Registration failed: " . mysqli_error($conn));
+    }
+    
+    echo json_encode(['status' => 1, 'msg' => 'Registration successful!']);
+
+} catch (Exception $e) {
+    echo json_encode(['status' => 0, 'msg' => $e->getMessage()]);
+}
+?>
+
+
+login_process.php:
+<?php
+require_once 'connection.php';
+session_start();
+
+header('Content-Type: application/json');
+
+try {
+    if (empty($_POST['email']) || empty($_POST['pwd'])) {
+        throw new Exception("All fields are required");
+    }
+
+    $email = $_POST['email'];
+    $password = $_POST['pwd'];
+
+    $result = mysqli_query($conn, "SELECT * FROM users WHERE email = '$email'");
+    
+    if (!$result || mysqli_num_rows($result) === 0) {
+        throw new Exception("Invalid credentials");
+    }
+
+    $user = mysqli_fetch_assoc($result);
+    
+    if (!password_verify($password, $user['password'])) {
+        throw new Exception("Invalid credentials");
+    }
+
+    $_SESSION['user'] = [
+        'id' => $user['id'],
+        'email' => $user['email'],
+        'name' => $user['first_name'] . ' ' . $user['last_name']
+    ];
+
+    echo json_encode(['status' => 1, 'msg' => 'Login successful!']);
+
+} catch (Exception $e) {
+    echo json_encode(['status' => 0, 'msg' => $e->getMessage()]);
+}
+?>
+
+dashboard.php:
+<?php 
+session_start();
+require_once 'connection.php';
+
+if (!isset($_SESSION['user'])) {
+    header("Location: login.php");
+    exit();
+}
+
+$userId = $_SESSION['user']['id'];
+$result = mysqli_query($conn, "SELECT * FROM users WHERE id = '$userId'");
+$user = mysqli_fetch_assoc($result);
+
+if (!$user) {
+    session_destroy();
+    header("Location: login.php");
+    exit();
+}
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="box">
+            <h2 class="text-center">Welcome, <?= htmlspecialchars($user['first_name']) ?>!</h2>
+            <table class="table table-bordered mt-4">
+                <?php
+                $fields = [
+                    'First Name' => 'first_name',
+                    'Last Name' => 'last_name',
+                    'Birthdate' => 'birthdate',
+                    'Email' => 'email',
+                    'Contact Number' => 'contact_number',
+                    'Address' => 'address',
+                    'Gender' => 'gender'
+                ];
+                
+                foreach ($fields as $label => $field) {
+                    echo "<tr><th>$label</th><td>" . htmlspecialchars($user[$field]) . "</td></tr>";
+                }
+                ?>
+            </table>
+            <a href="logout.php" class="btn btn-danger btn-block">Logout</a>
+        </div>
+    </div>
+</body>
+</html>
+
+
+script.js:
+$(document).ready(function() {
+    function handleForm(formId, processUrl, successRedirect) {
+        $(formId).submit(function(e) {
+            e.preventDefault();
+            let $form = $(this),
+                $btn = $form.find('button'),
+                $msg = $form.find('.msg');
+
+            $btn.prop('disabled', true);
+            $msg.html('');
+
+            $.post(processUrl, $form.serialize(), function(response) {
+                let alertClass = response.status ? 'alert-success' : 'alert-danger';
+                $msg.html(`<div class="alert ${aler
