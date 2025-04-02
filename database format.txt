@@ -1,0 +1,14 @@
+CREATE DATABASE user_db;
+USE user_db;
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    birthdate DATE NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,  -- Email must be unique
+    password VARCHAR(255) NOT NULL,
+    contact_number VARCHAR(15) NOT NULL,
+    address TEXT NOT NULL,
+    gender ENUM('Male', 'Female') NOT NULL
+);
