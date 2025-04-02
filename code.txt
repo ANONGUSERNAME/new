@@ -154,13 +154,35 @@ $(document).ready(function() {
     function handleForm(formId, processUrl, successRedirect) {
         $(formId).submit(function(e) {
             e.preventDefault();
-            let $form = $(this),
-                $btn = $form.find('button'),
-                $msg = $form.find('.msg');
+            let $form = $(this);
+            let $btn = $form.find('button');
+            let $msg = $form.find('.msg');
 
             $btn.prop('disabled', true);
             $msg.html('');
 
-            $.post(processUrl, $form.serialize(), function(response) {
-                let alertClass = response.status ? 'alert-success' : 'alert-danger';
-                $msg.html(`<div class="alert ${aler
+            $.ajax({
+                url: processUrl,
+                method: 'POST',
+                data: $form.serialize(),
+                dataType: 'json',
+                success: function(response) {
+                    let alertClass = response.status ? 'alert-success' : 'alert-danger';
+                    $msg.html(`<div class="alert ${alertClass}">${response.msg}</div>`);
+                    if (response.status && successRedirect) {
+                        setTimeout(() => window.location.href = successRedirect, 1500);
+                    }
+                },
+                error: function() {
+                    $msg.html('<div class="alert alert-danger">Server error. Please try again.</div>');
+                },
+                complete: function() {
+                    $btn.prop('disabled', false);
+                }
+            });
+        });
+    }
+
+    handleForm('#registerForm', 'register_process.php', 'login.php');
+    handleForm('#loginForm', 'login_process.php', 'dashboard.php');
+});
